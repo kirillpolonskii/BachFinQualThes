@@ -1,31 +1,32 @@
+from io import BytesIO
+
+import numpy as np
 import streamlit as st
 import torch
-from cgan.utils import gradient_penalty, save_checkpoint, load_checkpoint
-from cgan.model import Discriminator, Generator, initialize_weights
 from PIL import Image
-from io import BytesIO
-import numpy as np
 
+from cgan.model import Discriminator, Generator
+from cgan.utils import load_checkpoint
+from postprocessing.actions import to3colors, cleanSingleGrayPixels, cleanSingleWhitePixels, fillBlackInRooms, \
+    cleanBorders, replaceWhiteEntities
 
-# Hyperparameters etc.
-# device = "cuda" if torch.cuda.is_available() else "cpu"
+# Hyperparameters
 device = "cpu"
 print(device)
-LEARNING_RATE = 1e-4
-BATCH_SIZE = 64
-IMAGE_SIZE = 256  # was 64, -> 256
+LEARNING_RATE = 0.0007
+BATCH_SIZE = 32
+IMAGE_SIZE = 256
 CHANNELS_IMG = 1
 NUM_CLASSES = 30
-GEN_EMBEDDING = 130
-Z_DIM = 130
-NUM_EPOCHS = 7
-FEATURES_CRITIC = 40  # was 16, -> 32, -> 40
-FEATURES_GEN = 40  # was 16, -> 32, -> 40
-CRITIC_ITERATIONS = 5
+GEN_EMBEDDING = 140
+Z_DIM = 140
+NUM_EPOCHS = 20
+FEATURES_CRITIC = 48
+FEATURES_GEN = 48
+CRITIC_ITERATIONS = 4
 LAMBDA_GP = 10
 LOAD_CHECKPOINT = False
-GRID_SIZE = 8
-
+GRID_SIZE = 4
 
 st.set_page_config(layout="wide")
 st.markdown("""
@@ -49,7 +50,6 @@ background-color: #e6e6e6;
 </style>
 """
 st.markdown(pg_bg, unsafe_allow_html=True)
-# num_rooms, room_difficulty, btn_generate, btn_save_img = st.columns([0.25, 0.25, 0.25, 0.25], gap="small")
 col = st.columns([0.25, 0.25, 0.25, 0.25], gap="small")
 num_rooms = col[0].selectbox('Количество комнат:', options=[2, 3, 4, 5, 6, 7, 8, 9, 10, 11])
 room_difficulty = col[1].selectbox('Уровень сложности:', options=['Лёгкий', 'Средний', 'Тяжёлый'])
@@ -68,7 +68,7 @@ if btn_generate:
         room_difficulty_int = 2
     gen = Generator(Z_DIM, CHANNELS_IMG, FEATURES_GEN, NUM_CLASSES, IMAGE_SIZE, GEN_EMBEDDING).to(device)
     critic = Discriminator(CHANNELS_IMG, FEATURES_CRITIC, NUM_CLASSES, IMAGE_SIZE).to(device)
-    load_checkpoint(torch.load("C:/Users/polki/Downloads/cgan_output/cgan_map_generation.pth.tar"), gen, critic)
+    load_checkpoint(torch.load("C:/MAI/DIPL/BQTMapGeneration/results_18/cgan_map_generation.pth.tar"), gen, critic)
     # gen.eval()
     label_int = (num_rooms - 2) * 3 + room_difficulty_int
     label = torch.LongTensor([
@@ -82,7 +82,15 @@ if btn_generate:
                      .permute(1, 2, 0)
                      .detach().numpy())  # Into Numpy
     generated_img = generated_img.squeeze(2)
+    print(generated_img)
     img = Image.fromarray((generated_img * 255).astype(np.uint8), "L")
+    img = to3colors(img)
+    img = cleanBorders(img)
+    img = cleanSingleGrayPixels(img)
+    img = cleanSingleWhitePixels(img)
+    img = fillBlackInRooms(img)
+    img = fillBlackInRooms(img)
+    img = replaceWhiteEntities(img, num_rooms, room_difficulty)
     img = img.resize((512, 512), resample=Image.NEAREST)
     st.image(img)
     buf = BytesIO()

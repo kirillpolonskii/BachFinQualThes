@@ -10,15 +10,16 @@ class Discriminator(nn.Module):
             # input: N x channels_img+1 x 256 x 256
             nn.Conv2d(channels_img + 1, features_d, kernel_size=3, stride=2, padding=1),
             nn.LeakyReLU(0.2),
-            nn.Dropout2d(0.2),  # N x channels_img x 128 x 128
+            nn.Dropout2d(0.3),
+            # N x channels_img x 128 x 128
             self._block(features_d, features_d * 2, 3, 2, 1),
-            nn.Dropout2d(0.25),
+            nn.Dropout2d(0.3),
             self._block(features_d * 2, features_d * 4, 3, 2, 1),
-            nn.Dropout2d(0.25),
+            nn.Dropout2d(0.3),
             self._block(features_d * 4, features_d * 8, 3, 2, 1),
-            nn.Dropout2d(0.25),
+            nn.Dropout2d(0.3),
             self._block(features_d * 8, features_d * 16, 3, 2, 1),
-            nn.Dropout2d(0.25),
+            nn.Dropout2d(0.3),
             # After all _block img output is 8x8 (Conv2d below makes into 1x1)
             nn.Conv2d(features_d * 16, 1, kernel_size=8, stride=2, padding=0),
         )
@@ -26,18 +27,14 @@ class Discriminator(nn.Module):
 
     def _block(self, in_channels, out_channels, kernel_size, stride, padding):
         return nn.Sequential(
-            nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding,
-                bias=False,
+            nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, bias=False,
             ),
             nn.InstanceNorm2d(out_channels, affine=True),
             nn.LeakyReLU(0.2),
         )
 
     def forward(self, x, labels):
-        # print(labels.shape)
         embedding = self.embed(labels).view(labels.shape[0], 1, self.img_size, self.img_size)
-        # print(x.shape)
-        # print(embedding.shape)
         x = torch.cat([x, embedding], dim=1)  # N x C x img_size x img_size
         return self.disc(x)
 
@@ -49,38 +46,33 @@ class Generator(nn.Module):
         self.net = nn.Sequential(
             # Input: N x channels_noise + embed_size x 1 x 1
             self._block(channels_noise + embed_size, features_g * 32, 8, 1, 0, 0),
-            nn.Dropout2d(0.25),
+            nn.Dropout2d(0.3),
             self._block(features_g * 32, features_g * 16, 3, 2, 1, 1),
-            nn.Dropout2d(0.25),
+            nn.Dropout2d(0.3),
             self._block(features_g * 16, features_g * 8, 3, 2, 1, 1),
-            nn.Dropout2d(0.25),
+            nn.Dropout2d(0.3),
             self._block(features_g * 8, features_g * 4, 3, 2, 1, 1),
-            nn.Dropout2d(0.25),
+            nn.Dropout2d(0.3),
             self._block(features_g * 4, features_g * 2, 3, 2, 1, 1),
-            nn.Dropout2d(0.2),
+            nn.Dropout2d(0.3),
             nn.ConvTranspose2d(
                 features_g * 2, channels_img, kernel_size=3, stride=2, padding=1, output_padding=1
             ), # Output: N x channels_img x 256x256
-            #nn.Tanh(),
             nn.Sigmoid(),
         )
         self.embed = nn.Embedding(num_classes, embed_size)
 
     def _block(self, in_channels, out_channels, kernel_size, stride, padding, output_padding):
         return nn.Sequential(
-            nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, padding, output_padding,
-                bias=False,),
+            nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, padding, output_padding, bias=False,
+            ),
             nn.BatchNorm2d(out_channels),
             nn.ReLU(),
         )
 
     def forward(self, x, labels):
-        # print("gen ", labels.shape)
         embedding = self.embed(labels).unsqueeze(2).unsqueeze(3)
-        # print(x.shape)
-        # print(embedding.shape)
         x = torch.cat([x, embedding], dim=1)
-        # print(x.shape)
         return self.net(x)
 
 

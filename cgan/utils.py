@@ -23,7 +23,7 @@ def gradient_penalty(critic, labels, real, fake, device="cpu"):
     return gradient_penalty
 
 
-def save_checkpoint(checkpoint, filename="cgan_map_generation.pth.tar"):
+def save_checkpoint(checkpoint, filename="C:/MAI/DIPL/BQTMapGeneration/results_18/cgan_map_generation.pth.tar"):
     print("=> Saving checkpoint")
     torch.save(checkpoint, filename)
 
